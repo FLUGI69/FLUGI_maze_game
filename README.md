@@ -1,1 +1,1 @@
-# FLUGI_maze_game
+# FLUGI Maze Game
