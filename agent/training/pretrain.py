@@ -221,7 +221,14 @@ class Pretrainer:
                 )
             )
 
-        # Save only the DQN weights (conv + fc layers, not the classifier head)
+        with torch.no_grad():
+            
+            dqn.out.weight[4] = -classifier.head.weight[0]
+            dqn.out.bias[4] = -classifier.head.bias[0]
+
+        self.log.info("skip action (index 4) initialized from classifier head")
+
+        # Save the DQN weights (conv + fc layers + skip-initialized output)
         save_path = self._model_dir / "pretrained.pt"
         torch.save(dqn.state_dict(), save_path)
 

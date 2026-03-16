@@ -43,12 +43,15 @@ class MazeEnvironment:
         
         # If a skip already fetched the next maze, use it
         if self._pending_state is not None:
+            
             gs = self._pending_state
             self._pending_state = None
             self._episode_steps = 0
             self._visited = set()
             self._prev_state = gs
+            
             self.log.debug("using pending state from skip")
+            
             return gs
 
         if self._game is not None and self._game.is_alive() == False:
@@ -109,7 +112,7 @@ class MazeEnvironment:
                 # Penalize skip after first step - treat as wasted move
                 self._episode_steps += 1
                 
-                return self._prev_state, -1.0, False, {
+                return self._prev_state, -2.0, False, {
                     "state": "playing", 
                     "moves": self._prev_state.moves, 
                     "steps": self._episode_steps
@@ -138,7 +141,7 @@ class MazeEnvironment:
         if self._episode_steps >= Config.training.max_steps and done == False:
             
             done = True
-            reward -= 10.0
+            reward -= 20.0
             
             self.log.info("episode timed out after %d steps" % (self._episode_steps))
 
@@ -170,26 +173,47 @@ class MazeEnvironment:
         gs = self._prev_state
 
         survivable = self._pathfinder.check_survivability(
-            gs.walls_array, gs.player_pos,
-            gs.coins, gs.shields, gs.traps, gs.exit_pos,
-            gs.hp, gs.has_shield, gs.width, gs.height)
+            gs.walls_array, 
+            gs.player_pos,
+            gs.coins, 
+            gs.shields, 
+            gs.traps,
+            gs.exit_pos,
+            gs.hp, 
+            gs.has_shield, 
+            gs.width,
+            gs.height
+        )
 
         if survivable:
+            
             reward = Config.training.bad_skip_reward    # -20: shouldn't have skipped
+            
             self.log.info("BAD SKIP at step %d - maze was survivable (reward: %.1f)" % (
-                self._episode_steps, reward))
+                self._episode_steps, 
+                reward
+                )
+            )
+            
         else:
+            
             reward = Config.training.good_skip_reward   # +5: smart decision
+            
             self.log.info("GOOD SKIP at step %d - maze was impossible (reward: %.1f)" % (
-                self._episode_steps, reward))
+                self._episode_steps, 
+                reward
+                )
+            )
 
         # Request a new maze from the game process
         self._game.send("new")
         new_gs = self._game.read_state()
 
         if new_gs is None:
+            
             self.log.warning("game process died during skip")
             self._last_state = "process_ended"
+            
             return None, reward, True, {"reason": "process_ended"}
 
         self._pending_state = new_gs
@@ -224,6 +248,7 @@ class MazeEnvironment:
         best = float("inf")
 
         for cx, cy in gs.coins:
+            
             d = abs(px - cx) + abs(py - cy)
 
             if d < best:
@@ -240,38 +265,69 @@ class MazeEnvironment:
 
     def _compute_reward(self, prev: GameState, curr: GameState) -> float:
         
-        reward = -0.01
+        reward = -0.05   # higher step penalty → agent values efficiency
 
         if curr.state == "won":
             
-            reward += 50.0
+            # win bonus + efficiency bonus for fast completion
+            efficiency = max(0.0, 1.0 - self._episode_steps / Config.training.max_steps)
+            reward += 100.0 + efficiency * 50.0
 
         elif curr.state == "dead":
             
-            reward -= 30.0
+            reward -= 50.0
 
         else:
 
+            # -- movement quality --
             if curr.player_pos == prev.player_pos:
                 
-                reward -= 0.5
+                reward -= 1.5       # wall bump: much harsher
 
             elif curr.player_pos in self._visited:
                 
-                reward -= 0.1
+                reward -= 0.3       # revisit: harsher
+
+            else:
+                
+                reward += 0.1       # new cell exploration bonus
 
             self._visited.add(curr.player_pos)
             
+            # -- coin collection --
             if curr.coins_collected > prev.coins_collected:
                 
-                reward += 5.0
+                reward += 20.0      # big reward for each coin
+                
+                # progressive bonus: later coins worth more
+                progress = curr.coins_collected / max(curr.total_coins, 1)
+                reward += progress * 5.0
+                
+                # all coins collected → exit just opened
+                if curr.coins_collected == curr.total_coins:
+                    reward += 25.0
 
             else:
 
-                prev_dist = self._nearest_coin_dist(prev)
-                curr_dist = self._nearest_coin_dist(curr)
-                delta = prev_dist - curr_dist
-                reward += delta * 0.1
+                # -- distance shaping --
+                if curr.exit_open:
+                    
+                    # all coins done → head to exit
+                    prev_d = self._exit_dist(prev)
+                    curr_d = self._exit_dist(curr)
+                    reward += (prev_d - curr_d) * 0.5
+                    
+                else:
+                    
+                    # still collecting → head toward nearest coin
+                    prev_dist = self._nearest_coin_dist(prev)
+                    curr_dist = self._nearest_coin_dist(curr)
+                    delta = prev_dist - curr_dist
+                    reward += delta * 0.5
+
+            # -- shield pickup --
+            if curr.has_shield and not prev.has_shield:
+                reward += 3.0
 
             if curr.has_shield and prev.has_shield == False:
                 
@@ -294,6 +350,7 @@ class MazeEnvironment:
                 prev_exit = self._exit_dist(prev)
                 curr_exit = self._exit_dist(curr)
                 delta = prev_exit - curr_exit
+                
                 reward += delta * 0.2
 
         return reward

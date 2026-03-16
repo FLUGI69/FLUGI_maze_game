@@ -25,20 +25,20 @@ class Config(object):
         max_hp = 3
 
     class training:
-        episodes       = 1000
+        episodes       = 50000
         gamma          = 0.99
-        learning_rate  = 0.001
+        learning_rate  = 0.0005
         epsilon_start  = 1.0
         epsilon_end    = 0.05
-        epsilon_decay  = 0.995
+        epsilon_decay  = 0.998
         batch_size     = 128
         memory_size    = 50000
         model_dir      = "models"
         target_sync    = 10
-        max_steps      = 2000
+        max_steps      = 1200
         optimize_interval = 4
-        good_skip_reward  = 2.0
-        bad_skip_reward   = -30.0
+        good_skip_reward  = 5.0
+        bad_skip_reward   = -50.0
 
     class chart:
         update_interval = 10

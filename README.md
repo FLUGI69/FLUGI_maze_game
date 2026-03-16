@@ -176,7 +176,9 @@ The DQN (Deep Q-Network) learns to navigate the maze through trial and error:
 - **No SFML window** - training runs headless (console + matplotlib chart only)
 - **Live chart** - 2×2 matplotlib window: reward, epsilon, win rate + skip rate, loss
 - **Speed metrics** - each episode shows ep/s and step/s in the log
-- **1000 episodes** by default, **2000 steps max** per episode (timeout penalty)
+- **Runs indefinitely** until you close the chart window or press Ctrl+C. **1200 steps max** per episode (timeout penalty)
+- **Skip only from policy** - random exploration never picks skip the agent must *learn* when to skip
+- **Auto-resume** - if `models/final.pt` exists, training continues from where it left off (loads saved weights automatically)
 - Models saved to `models/`: `best.pt`, `final.pt`, `checkpoint_*.pt`
 - Chart saved as `training_chart.png`
 
@@ -184,6 +186,8 @@ The DQN (Deep Q-Network) learns to navigate the maze through trial and error:
 
 - **Close the chart window** - cleanly stops training and saves `final.pt`
 - **Ctrl+C** - interrupts training and saves `final.pt`
+
+> **Tip:** To restart training from scratch, delete `models/final.pt` (the pretrained CNN weights from `pretrained.pt` will still be loaded).
 
 ### 5. Play with the trained model
 
@@ -201,11 +205,13 @@ The DQN agent receives the following rewards during training:
 
 | Event | Reward | Purpose |
 |-------|--------|---------|
-| Win (reach exit) | +50.0 | Ultimate goal |
+| Win (reach exit) | +100.0 | Ultimate goal |
 | **Good skip** (impossible maze) | +2.0 | Smart decision - avoid certain death |
 | Collect coin | +5.0 | Encourage collecting |
-| Pick up shield | +2.0 | Encourage shield use |
 | Exit opens | +3.0 | Milestone reward |
+| Pick up shield | +2.0 | Encourage shield use |
+| Approach coin | +0.1 per tile | Guide toward nearest coin |
+| Approach exit | +0.2 per tile | Guide toward exit (when open) |
 | Step cost | -0.01 | Encourage efficiency |
 | Revisit tile | -0.1 | Don't go in circles |
 | Wall bump (no move) | -0.5 | Don't walk into walls |
@@ -213,7 +219,7 @@ The DQN agent receives the following rewards during training:
 | HP loss (trap hit) | -10.0 | Avoid traps |
 | Timeout (2000 steps) | -10.0 | Don't wander forever |
 | **Bad skip** (winnable maze) | -30.0 | Don't skip doable mazes |
-| Death | -30.0 | Avoid dying |
+| Death | -50.0 | Avoid dying |
 
 ### Skip vs Pathfinder
 
@@ -233,7 +239,8 @@ The RL agent learns to evaluate the maze layout and decide: *"Can I survive this
 
 ```
 1. --pretrain     →  CNN learns maze structure (supervised, ~7s)
-2. --train --gpu  →  RL fine-tunes navigation + skip decisions (1000 episodes)
+2. --train --gpu  →  RL fine-tunes navigation + skip decisions (runs indefinitely)
+                     (auto-resumes from final.pt if exists)
 3. --play         →  Evaluate on 1000 mazes, compare win rate to rule-based bot
 ```
 
@@ -311,13 +318,12 @@ FLUGI_maze_game/
 | `agent` | `max_mazes` | 1000 | Total mazes to play (for win rate comparison) |
 | `agent` | `max_steps` | 800 | Max steps per maze (rule-based bot) |
 | `pathfinder` | `trap_penalty` | 20 | Dijkstra path cost for trap tiles |
-| `training` | `episodes` | 1000 | Training episodes |
-| `training` | `max_steps` | 2000 | Max steps per episode (timeout) |
-| `training` | `good_skip_reward` | 2.0 | Reward for correctly skipping impossible maze |
-| `training` | `bad_skip_reward` | -30.0 | Penalty for skipping a winnable maze |
-| `training` | `learning_rate` | 0.001 | Adam optimizer LR |
+| `training` | `max_steps` | 1200 | Max steps per episode (timeout) |
+| `training` | `good_skip_reward` | 5.0 | Reward for correctly skipping impossible maze |
+| `training` | `bad_skip_reward` | -50.0 | Penalty for skipping a winnable maze |
+| `training` | `learning_rate` | 0.0005 | Adam optimizer LR |
 | `training` | `epsilon_start/end` | 1.0 / 0.05 | Exploration range |
-| `training` | `epsilon_decay` | 0.995 | Epsilon multiplier per episode |
+| `training` | `epsilon_decay` | 0.998 | Epsilon multiplier per episode |
 | `training` | `batch_size` | 128 | Replay memory batch |
 | `training` | `memory_size` | 50000 | Replay memory capacity |
 | `training` | `target_sync` | 10 | Target net sync interval (episodes) |

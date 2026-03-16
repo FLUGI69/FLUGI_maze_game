@@ -199,6 +199,7 @@ class TrainingChart:
         ax = axes[1, 0]
 
         if n >= self._rolling:
+            
             rate = np.convolve(self._wins, np.ones(self._rolling) / self._rolling, mode = "valid")
             ax.plot(np.arange(self._rolling, n + 1), rate, color = "seagreen", linewidth = 2, label = "Win Rate")
             skip_rate = np.convolve(self._skips, np.ones(self._rolling) / self._rolling, mode = "valid")

@@ -43,6 +43,16 @@ class Trainer:
                 )
             )
         
+        # Resume from previous training if final.pt exists
+        final_path = (Config.root_dir / Config.training.model_dir / "final.pt")
+        
+        if final_path.exists() == True:
+            
+            saved = torch.load(final_path, map_location = self._device, weights_only = True)
+            self._policy_net.load_state_dict(saved)
+            
+            self.log.info("resumed training from %s" % final_path.name)
+        
         self._target_net = DQN(self._obs_size, self._action_count).to(self._device)
         self._target_net.load_state_dict(self._policy_net.state_dict())
 
@@ -101,16 +111,11 @@ class Trainer:
         
         return torch.device("cpu")
 
-    def train(self, episodes: int = None):
+    def train(self):
         
-        episodes = episodes or Config.training.episodes
         chart = TrainingChart()
 
-        self.log.info("training started - %d episodes on %s" % (
-            episodes, 
-            self._device
-            )
-        )
+        self.log.info("training started on %s (stop: close chart or Ctrl+C)" % (self._device))
 
         best_reward = float("-inf")
         total_wins = 0
@@ -124,12 +129,9 @@ class Trainer:
 
         try:
 
-            for ep in range(1, episodes + 1):
-
-                if chart.stopped == True:
-                    self.log.info("chart window closed \u2014 stopping training at episode %d" % (ep))
-                    break
+            while chart.stopped == False:
                 
+                ep += 1
                 ep_start = time.perf_counter()
                 step_count = 0
                 
@@ -159,11 +161,15 @@ class Trainer:
                     step_count += 1
 
                     if step_count % 50 == 0:
+                        
                         chart.pump()
 
                     if step_count % Config.training.optimize_interval == 0:
+                        
                         loss = self._optimize()
+                        
                     else:
+                        
                         loss = None
                     
                     if loss is not None:
@@ -186,15 +192,19 @@ class Trainer:
                 died = info.get("state") == "dead"
                 
                 if won == True:
+                    
                     total_wins += 1
 
                 if died == True:
+                    
                     total_losses += 1
 
                 if skipped == True:
                     
                     total_skips += 1
+                    
                     if info.get("survivable") == False:
+                        
                         total_good_skips += 1
 
                 if ep % Config.training.target_sync == 0:
@@ -217,6 +227,7 @@ class Trainer:
                 new_lr = self._optimizer.param_groups[0]["lr"]
 
                 if new_lr < old_lr:
+                    
                     self.log.info("learning rate reduced: %.6f -> %.6f" % (old_lr, new_lr))
                 
                 chart.update(ep, episode_reward, self._epsilon, won, avg_loss, skipped)
@@ -226,14 +237,19 @@ class Trainer:
                 ep_per_sec = ep / max(elapsed, 0.001)
 
                 if skipped == True:
+                    
                     outcome = "GOOD SKIP" if info.get("survivable") == False else "BAD SKIP"
+                    
                 elif won == True:
+                    
                     outcome = "WON"
+                    
                 else:
+                    
                     outcome = "DIED"
 
-                self.log.info("ep %d/%d \u2014 reward: %.1f \u2014 best: %.1f \u2014 eps: %.3f \u2014 loss: %.4f \u2014 %s \u2014 moves: %d \u2014 %.1fs (%.1f ep/s, %.0f step/s)" % (
-                    ep, episodes, 
+                self.log.info("ep %d \u2014 reward: %.1f \u2014 best: %.1f \u2014 eps: %.3f \u2014 loss: %.4f \u2014 %s \u2014 moves: %d \u2014 %.1fs (%.1f ep/s, %.0f step/s)" % (
+                    ep, 
                     episode_reward,
                     best_reward, 
                     self._epsilon, 
@@ -267,8 +283,10 @@ class Trainer:
             self.log.warning("training interrupted at episode %d" % (ep))
 
         finally:
+            
             self._save_model("final.pt")
             self._env.close()
+            
             chart.save()
             chart.close()
 
@@ -303,7 +321,10 @@ class Trainer:
         
         if np.random.random() < self._epsilon:
             
-            action = np.random.randint(self._action_count)
+            # Only explore movement actions — skip is never chosen randomly.
+            # The policy net can still select skip when it learns to identify
+            # impossible mazes.  This prevents bad skips from random exploration.
+            action = np.random.randint(4)
             
             self.log.debug("action: %d (random, eps=%.3f)" % (
                 action, 
@@ -355,7 +376,9 @@ class Trainer:
         
         self._optimizer.zero_grad(set_to_none = True)
         loss.backward()
+        
         torch.nn.utils.clip_grad_norm_(self._policy_net.parameters(), 1.0)
+        
         self._optimizer.step()
         loss_val = loss.item()
         
