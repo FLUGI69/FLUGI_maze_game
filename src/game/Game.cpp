@@ -10,6 +10,7 @@ Game::Game(sf::RenderWindow* window, bool aiMode)
     , state_(GameState::Title)
     , moveCount_(0)
     , aiMode_(aiMode)
+    , skipMessageDuration_(3.0f)
 {}
 
 void Game::run() {
@@ -273,6 +274,33 @@ void Game::handleInput(const sf::Event& event) {
             window_->close();
             return;
 
+        case InputAction::Skip: {
+            // Check survivability before skipping
+            bool survivable = Survivability::check(
+                maze_.getGrid(),
+                maze_.getWidth(), maze_.getHeight(),
+                player_.getPosition(), player_.getHp(), player_.hasShield(),
+                coins_, shields_, traps_,
+                maze_.getExitPos()
+            );
+
+            if (survivable) {
+
+                skipMessage_ = "BAD SKIP - maze was completable!";
+                ColorLog::warning("BAD SKIP - maze was completable!");
+                
+            } else {
+
+                skipMessage_ = "GOOD SKIP - maze was impossible!";
+                ColorLog::success("GOOD SKIP - maze was impossible!");
+            }
+            skipClock_.restart();
+
+            initRound();
+            state_ = GameState::Playing;
+            return;
+        }
+
         case InputAction::None:
             return;
     }
@@ -347,14 +375,20 @@ void Game::checkItemCollisions(const Vec2& pos) {
 }
 
 void Game::render() {
+
+    // Clear skip message after duration
+    if (!skipMessage_.empty() && skipClock_.getElapsedTime().asSeconds() > skipMessageDuration_) {
+        skipMessage_.clear();
+    }
+
     switch (state_) {
 
         case GameState::Title:
-            renderer_.drawMessage(*window_, "FLUGI MAZE GAME", "Press any key to start");
+            renderer_.drawMessage(*window_, "FLUGI MAZE GAME", "Press any key to start  |  SPACE to skip maze");
             break;
 
         case GameState::Playing:
-            renderer_.draw(*window_, maze_, player_, coins_, shields_, traps_);
+            renderer_.draw(*window_, maze_, player_, coins_, shields_, traps_, skipMessage_);
             break;
 
         case GameState::Won:
@@ -367,10 +401,16 @@ void Game::render() {
     }
 }
 
-// --- AI mode: pipe-based communication with Python agent ---
+//  AI mode: pipe-based communication with Python agent 
 
 void Game::runAI() {
     ColorLog::info("AI mode started");
+
+    bool hasWindow = (window_ != nullptr);
+
+    if (hasWindow) {
+        renderer_.init(*window_);
+    }
 
     initRound();
     state_ = GameState::Playing;
@@ -379,6 +419,22 @@ void Game::runAI() {
     int prevCoins = 0, prevShields = 0, prevTraps = 0;
 
     while (true) {
+
+        // SFML event pump + render
+        if (hasWindow) {
+
+            sf::Event event;
+
+            while (window_->pollEvent(event)) {
+
+                if (event.type == sf::Event::Closed) {
+                    window_->close();
+                    return;
+                }
+            }
+
+            render();
+        }
 
         if (sendFull) {
             std::cout << serializeState(true) << "\n" << std::flush;
@@ -584,8 +640,16 @@ std::string Game::serializeState(bool includeMaze) const {
       << ",\"open\":" << (maze_.isExitOpen() ? "true" : "false")
       << "},";
 
-    // Move count
-    o << "\"moves\":" << moveCount_ << "}";
+    // Move count + survivability
+    bool survivable = Survivability::check(
+        maze_.getGrid(),
+        maze_.getWidth(), maze_.getHeight(),
+        player_.getPosition(), player_.getHp(), player_.hasShield(),
+        coins_, shields_, traps_,
+        maze_.getExitPos()
+    );
+    o << "\"moves\":" << moveCount_
+      << ",\"survivable\":" << (survivable ? "true" : "false") << "}";
 
     return o.str();
 }

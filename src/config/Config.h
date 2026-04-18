@@ -31,7 +31,7 @@ namespace Config {
 
     namespace Difficulty {
         inline const std::string LEVEL = "HARDCORE";
-        constexpr int TRAP_DAMAGE      = 2;
+        constexpr int TRAP_DAMAGE      = 1;
         constexpr bool TRAPS_VISIBLE   = true;
     }
 

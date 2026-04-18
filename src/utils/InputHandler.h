@@ -2,9 +2,13 @@
 #include <SFML/Window.hpp>
 
 enum class InputAction {
-
-    MoveUp, MoveDown, MoveLeft, MoveRight,
-    Quit, None
+    MoveUp, 
+    MoveDown, 
+    MoveLeft, 
+    MoveRight,
+    Skip, 
+    Quit, 
+    None
 };
 
 class InputHandler {

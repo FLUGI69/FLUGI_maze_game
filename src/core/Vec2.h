@@ -15,6 +15,10 @@ struct Vec2 {
         return !(*this == other);
     }
 
+    constexpr bool operator<(const Vec2& other) const {
+        return (y != other.y) ? (y < other.y) : (x < other.x);
+    }
+
     constexpr Vec2 operator+(const Vec2& other) const {
         return Vec2(x + other.x, y + other.y);
     }

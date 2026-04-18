@@ -1,0 +1,1 @@
+from .maze_agent_config import MazeAgentConfig

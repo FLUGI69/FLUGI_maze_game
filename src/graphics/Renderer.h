@@ -18,7 +18,8 @@ public:
         const Player& player,
         const std::vector<Coin>& coins,
         const std::vector<Shield>& shields,
-        const std::vector<Trap>& traps);
+        const std::vector<Trap>& traps,
+        const std::string& skipMessage = "");
 
     void drawMessage(sf::RenderWindow& window, const std::string& title, const std::string& subtitle);
 

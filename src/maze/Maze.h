@@ -35,6 +35,8 @@ public:
     const Vec2& getStartPos() const;
     const Vec2& getExitPos() const;
 
+    const std::vector<std::vector<CellType>>& getGrid() const { return grid_; }
+
 private:
 
     Vec2 findNearestPath(const Vec2& from) const;

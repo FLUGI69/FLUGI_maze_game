@@ -1,10 +1,12 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include "../maze/Maze.h"
+#include "../maze/Survivability.h"
 #include "../entities/Player.h"
 #include "../entities/Items.h"
 #include "../graphics/Renderer.h"
 #include <vector>
+#include <string>
 
 enum class GameState {
     Title,
@@ -51,4 +53,8 @@ private:
     int moveCount_;
     
     bool aiMode_;
+
+    std::string skipMessage_;
+    sf::Clock skipClock_;
+    float skipMessageDuration_;
 };

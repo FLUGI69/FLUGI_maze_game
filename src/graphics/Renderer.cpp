@@ -42,12 +42,37 @@ void Renderer::draw(sf::RenderWindow& window,
                     const Player& player,
                     const std::vector<Coin>& coins,
                     const std::vector<Shield>& shields,
-                    const std::vector<Trap>& traps) {
+                    const std::vector<Trap>& traps,
+                    const std::string& skipMessage) {
     window.clear(sf::Color(30, 30, 30));
     drawMaze(window, maze);
     drawItems(window, coins, shields, traps);
     drawPlayer(window, player);
     drawHUD(window, player, maze);
+
+    if (!skipMessage.empty() && fontLoaded_) {
+        sf::Text msgText;
+        msgText.setFont(font_);
+        msgText.setCharacterSize(20);
+        msgText.setStyle(sf::Text::Bold);
+
+        bool good = skipMessage.find("GOOD") != std::string::npos;
+        msgText.setFillColor(good ? sf::Color(60, 220, 60) : sf::Color(220, 60, 60));
+        msgText.setString(skipMessage);
+
+        sf::FloatRect bounds = msgText.getLocalBounds();
+        float winW = static_cast<float>(window.getSize().x);
+        msgText.setPosition((winW - bounds.width) / 2, static_cast<float>(hudHeight_) + 10);
+
+        // Dark background behind text for readability
+        sf::RectangleShape bg;
+        bg.setSize(sf::Vector2f(bounds.width + 20, bounds.height + 16));
+        bg.setFillColor(sf::Color(0, 0, 0, 180));
+        bg.setPosition(msgText.getPosition().x - 10, msgText.getPosition().y - 4);
+        window.draw(bg);
+        window.draw(msgText);
+    }
+
     window.display();
 }
 

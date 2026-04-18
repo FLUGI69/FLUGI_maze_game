@@ -1,11 +1,23 @@
-"""FLUGI Maze Game - AI Agent"""
-import sys
-from pathlib import Path
+from interfaces import Init, Interfaces
+import traceback
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
 
-from obj.launcher import Launcher
-
-if __name__ == "__main__":
+    Init.setup_project_base(__file__)
     
-    Launcher().run()
+    Init.setup_modules()
+ 
+    Interfaces.Web.run()
+
+    Interfaces.exit()
+
+except KeyboardInterrupt:
+    pass
+
+except:
+
+    Interfaces.exit(
+        msg = traceback.format_exc(),
+        is_error = True,
+        error_notify = False
+    )

@@ -31,6 +31,10 @@ InputAction InputHandler::poll(const sf::Event& event) {
 
             return InputAction::MoveRight;
 
+        case sf::Keyboard::Space:
+
+            return InputAction::Skip;
+
         default:
         
             return InputAction::None;

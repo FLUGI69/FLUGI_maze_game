@@ -11,10 +11,12 @@
 int main(int argc, char* argv[]) {
 
     bool aiMode = false;
+    bool renderMode = false;
 
     for (int i = 1; i < argc; i++) {
 
         if (std::strcmp(argv[i], "--ai") == 0) aiMode = true;
+        if (std::strcmp(argv[i], "--render") == 0) renderMode = true;
     }
 
     if (aiMode) {
@@ -42,8 +44,26 @@ int main(int argc, char* argv[]) {
 
     if (aiMode) {
 
-        Game game(nullptr, true);
-        game.run();
+        if (renderMode) {
+
+            const int winW = Config::Maze::WIDTH * Config::Window::TILE_SIZE;
+            const int winH = Config::Maze::HEIGHT * Config::Window::TILE_SIZE + Config::Window::HUD_HEIGHT;
+
+            sf::RenderWindow window(
+                sf::VideoMode(winW, winH),
+                Config::Window::TITLE,
+                sf::Style::Titlebar | sf::Style::Close
+            );
+            window.setFramerateLimit(Config::Window::FPS);
+
+            Game game(&window, true);
+            game.run();
+
+        } else {
+
+            Game game(nullptr, true);
+            game.run();
+        }
 
     } else {
 
